@@ -1,0 +1,41 @@
+services:
+  mlflow-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+      POSTGRES_DB: mlflow
+    volumes:
+      - mlflow-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.12.1
+    ports:
+      - "5000:5000"
+    depends_on:
+      mlflow-postgres:
+        condition: service_healthy
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://mlflow:mlflow@mlflow-postgres:5432/mlflow
+    volumes:
+      - mlflow-artifacts:/mlflow/artifacts
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://mlflow:mlflow@mlflow-postgres:5432/mlflow
+      --default-artifact-root /mlflow/artifacts
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mlflow-pgdata:
+  mlflow-artifacts:

@@ -1,0 +1,235 @@
+# NetworkPolicy: restrict traffic between chaincommand components.
+#
+# Rules:
+#   - App pods can reach postgres (5432) and redis (6379).
+#   - Postgres and redis deny all ingress except from app pods.
+#   - App pods accept ingress from the ingress controller.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-to-postgres
+  namespace: chaincommand
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: chaincommand
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-to-redis
+  namespace: chaincommand
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: chaincommand
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-app
+  namespace: chaincommand
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: chaincommand
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-postgres
+  namespace: chaincommand
+  annotations:
+    description: >-
+      Deny all ingress to postgres not explicitly allowed by other policies.
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-redis
+  namespace: chaincommand
+  annotations:
+    description: >-
+      Deny all ingress to redis not explicitly allowed by other policies.
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Ingress
+---
+# Default-deny egress for app pods.
+# Only explicitly allowed egress rules below will permit traffic.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress-app
+  namespace: chaincommand
+  annotations:
+    description: >-
+      Deny all egress from chaincommand app pods unless explicitly allowed.
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: chaincommand
+  policyTypes:
+    - Egress
+---
+# Default-deny egress for postgres pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress-postgres
+  namespace: chaincommand
+  annotations:
+    description: >-
+      Deny all egress from postgres pods unless explicitly allowed.
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Egress
+---
+# Default-deny egress for redis pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress-redis
+  namespace: chaincommand
+  annotations:
+    description: >-
+      Deny all egress from redis pods unless explicitly allowed.
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Egress
+---
+# Allow app pods to reach Postgres (5432), Redis (6379), DNS (53), and HTTPS (443).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-app-egress
+  namespace: chaincommand
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: chaincommand
+  policyTypes:
+    - Egress
+  egress:
+    # Postgres
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    # Redis
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+    # HTTPS (external APIs, package registries, etc.)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+    # DNS resolution (kube-dns)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow postgres pods DNS resolution (kube-dns).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-egress-dns
+  namespace: chaincommand
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Allow redis pods DNS resolution (kube-dns).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-egress-dns
+  namespace: chaincommand
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

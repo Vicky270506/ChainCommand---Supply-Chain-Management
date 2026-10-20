@@ -1,0 +1,46 @@
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata:
+  name: chaincommand
+  namespace: chaincommand
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: chaincommand
+  service:
+    port: 80
+    targetPort: 8000
+    gateways:
+      - public-gateway.istio-system.svc.cluster.local
+    hosts:
+      - chaincommand.local
+  analysis:
+    interval: 1m
+    threshold: 5
+    maxWeight: 50
+    stepWeight: 10
+    metrics:
+      - name: request-success-rate
+        thresholdRange:
+          min: 99
+        interval: 1m
+      - name: request-duration
+        thresholdRange:
+          max: 500
+        interval: 1m
+    webhooks:
+      - name: acceptance-test
+        type: pre-rollout
+        url: http://flagger-loadtester.test/
+        timeout: 30s
+        metadata:
+          type: bash
+          cmd: "curl -sf http://chaincommand-canary:80/api/health"
+      - name: load-test
+        type: rollout
+        url: http://flagger-loadtester.test/
+        timeout: 5s
+        metadata:
+          type: cmd
+          cmd: "hey -z 1m -q 10 -c 2 http://chaincommand-canary.chaincommand:80/api/health"

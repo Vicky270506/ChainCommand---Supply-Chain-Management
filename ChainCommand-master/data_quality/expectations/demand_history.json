@@ -1,0 +1,135 @@
+{
+  "expectation_suite_name": "demand_history",
+  "ge_cloud_id": null,
+  "data_asset_type": null,
+  "meta": {
+    "great_expectations_version": "0.18.0",
+    "description": "Expectations for demand history data used in forecasting"
+  },
+  "expectations": [
+    {
+      "expectation_type": "expect_table_columns_to_match_set",
+      "kwargs": {
+        "column_set": [
+          "date", "product_id", "quantity",
+          "is_promotion", "is_holiday", "temperature",
+          "day_of_week", "month"
+        ],
+        "exact_match": false
+      },
+      "meta": {
+        "notes": "Columns aligned with DemandRecord schema and sample_demand_df fixture"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "date"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "product_id"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "quantity"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_of_type",
+      "kwargs": {
+        "column": "date",
+        "type_": "datetime64[ns]"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_of_type",
+      "kwargs": {
+        "column": "quantity",
+        "type_": "float64"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_of_type",
+      "kwargs": {
+        "column": "product_id",
+        "type_": "str"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "quantity",
+        "min_value": 0,
+        "max_value": null,
+        "strict_min": false
+      },
+      "meta": {
+        "notes": "Demand quantity must be non-negative"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "date",
+        "min_value": "2020-01-01",
+        "max_value": "2030-12-31",
+        "parse_strings_as_datetimes": true
+      },
+      "meta": {
+        "notes": "Dates must be within a reasonable range"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "product_id",
+        "regex": "^[A-Z]{2,4}-\\d{3,6}$"
+      },
+      "meta": {
+        "notes": "Product IDs follow pattern like PRD-0001 or SKU-12345"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "day_of_week",
+        "min_value": 0,
+        "max_value": 6
+      },
+      "meta": {
+        "notes": "day_of_week: 0=Monday through 6=Sunday"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "month",
+        "min_value": 1,
+        "max_value": 12
+      }
+    },
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": {
+        "min_value": 100,
+        "max_value": null
+      },
+      "meta": {
+        "notes": "Must have at least 100 rows for meaningful analysis"
+      }
+    },
+    {
+      "expectation_type": "expect_column_proportion_of_unique_values_to_be_between",
+      "kwargs": {
+        "column": "product_id",
+        "min_value": 0.001,
+        "max_value": 1.0
+      }
+    }
+  ]
+}

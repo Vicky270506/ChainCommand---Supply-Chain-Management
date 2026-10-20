@@ -1,0 +1,33 @@
+name: daily_validation
+config_version: 1.0
+
+class_name: Checkpoint
+
+run_name_template: "daily_validation_%Y%m%d_%H%M%S"
+
+validations:
+  - batch_request:
+      datasource_name: pandas_source
+      data_connector_name: default_runtime_data_connector
+      data_asset_name: demand_history
+    expectation_suite_name: demand_history
+    action_list:
+      - name: store_validation_result
+        action:
+          class_name: StoreValidationResultAction
+      - name: update_data_docs
+        action:
+          class_name: UpdateDataDocsAction
+
+  - batch_request:
+      datasource_name: pandas_source
+      data_connector_name: default_runtime_data_connector
+      data_asset_name: inventory_status
+    expectation_suite_name: inventory_status
+    action_list:
+      - name: store_validation_result
+        action:
+          class_name: StoreValidationResultAction
+      - name: update_data_docs
+        action:
+          class_name: UpdateDataDocsAction

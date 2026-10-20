@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chaincommand-config
+  namespace: chaincommand
+  labels:
+    app.kubernetes.io/name: chaincommand
+data:
+  CC_LOG_LEVEL: "INFO"
+  CC_SIMULATION_SPEED: "1.0"
+  CC_RATE_LIMIT_PER_MINUTE: "60"
+  CC_RL_TOTAL_TIMESTEPS: "50000"
+  CC_BOM_DEFAULT_ASSEMBLIES: "5"
+  CC_CTB_DEFAULT_BUILD_QTY: "100"
+  CC_ORTOOLS_RISK_LAMBDA: "0.3"

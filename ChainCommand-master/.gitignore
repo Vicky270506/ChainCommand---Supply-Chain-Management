@@ -1,0 +1,80 @@
+# ─── Python ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Distribution / Packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.Python
+develop-eggs/
+eggs/
+wheels/
+sdist/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Testing / Linting ───────────────────────────────────
+.pytest_cache/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# ─── IDE / Editor ────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ─── OS Generated ────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+.DS_Store
+desktop.ini
+$RECYCLE.BIN/
+
+# ─── Environment / Secrets ───────────────────────────────
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+credentials.json
+
+# ─── Claude Code (local settings) ────────────────────────
+.claude/
+
+# ─── Logs ─────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Node.js ─────────────────────────────────────────────
+node_modules/
+
+# ─── Images ─────────────────────────────────────────────
+*.png
+*.jpg
+*.jpeg
+*.gif
+architecture-diagrams/
+
+# ─── Project-specific exclusions ─────────────────────────
+docs/
+demo/
+generate_aws_screenshots.py
+k8s/secret.yaml

@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chaincommand"
+version = "3.0.0"
+description = "Supply Chain Risk & Inventory Ops — CP-SAT + RL + BOM + CTB"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scikit-learn>=1.4",
+    "structlog>=23.0",
+]
+
+[project.optional-dependencies]
+ortools = ["ortools>=9.8"]
+rl = ["gymnasium>=1.0", "stable-baselines3>=2.3"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.0",
+    "hypothesis>=6.0",
+    "httpx>=0.27",
+    "pyarrow>=14.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+]
+all = [
+    "chaincommand[ortools,rl,dev]",
+]
+
+[tool.setuptools.packages.find]
+include = ["chaincommand*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "S", "B"]
+ignore = ["S101", "B008", "S311", "S104"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S106"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

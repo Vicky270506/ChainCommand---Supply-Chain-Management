@@ -1,0 +1,58 @@
+services:
+  chaincommand:
+    build: .
+    ports:
+      - "8000:8000"
+    mem_limit: 1g
+    cpus: 1.0
+    environment:
+      - CC_LOG_LEVEL=INFO
+      - CC_RL_TOTAL_TIMESTEPS=50000
+      # POSTGRES_PASSWORD must be set in .env or environment — no default provided
+      - DATABASE_URL=postgresql://chaincommand:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/chaincommand
+      - REDIS_URL=redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD}@redis:6379/0
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    mem_limit: 512m
+    cpus: 0.5
+    environment:
+      POSTGRES_DB: chaincommand
+      POSTGRES_USER: chaincommand
+      # POSTGRES_PASSWORD must be set in .env or environment — no default provided
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chaincommand -d chaincommand"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    mem_limit: 256m
+    cpus: 0.25
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

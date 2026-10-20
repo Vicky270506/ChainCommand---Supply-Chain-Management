@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chaincommand
+  labels:
+    app.kubernetes.io/name: chaincommand
+    app.kubernetes.io/part-of: chaincommand
