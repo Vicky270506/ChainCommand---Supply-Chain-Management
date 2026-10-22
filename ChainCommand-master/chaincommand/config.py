@@ -64,6 +64,20 @@ class Settings(BaseSettings):
     port: int = 8000
     log_level: str = "INFO"
 
+    # ── Database ─────────────────────────────────────────
+    # PostgreSQL: postgresql+psycopg://user:password@localhost:5432/chaincommand
+    database_url: str = "sqlite:///./inventory.db"
+
+    # ── Login tokens ─────────────────────────────────────
+    jwt_secret: SecretStr = SecretStr("dev-jwt-secret-change-me-0123456789abcdef")  # set CC_JWT_SECRET outside development
+    jwt_expire_minutes: int = 60
+
+    # ── User authentication (JWT) ────────────────────────
+    # Set CC_JWT_SECRET to a long random string outside development.
+    jwt_secret: SecretStr = SecretStr("dev-jwt-secret-change-me-0123456789abcdef")
+    jwt_algorithm: str = "HS256"
+    access_token_minutes: int = 60
+
     # ── AWS ──────────────────────────────────────────────
     aws_enabled: bool = False
     aws_region: str = "ap-northeast-1"

@@ -66,7 +66,7 @@ def configure_middlewares(app: FastAPI) -> None:
         allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-        allow_headers=["X-API-Key", "Content-Type"],
+        allow_headers=["X-API-Key", "Authorization", "Content-Type"],
     )
 
     @app.middleware("http")
@@ -81,8 +81,10 @@ def configure_middlewares(app: FastAPI) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup / shutdown lifecycle."""
+    from ..db import init_db
     from ..orchestrator import get_orchestrator
 
+    init_db()  # create any missing tables in the configured database
     orchestrator = get_orchestrator()
     await orchestrator.initialize()
     log.info("app_startup_complete")
@@ -107,6 +109,13 @@ from .routes.dashboard import router as dashboard_router  # noqa: E402
 
 app.include_router(dashboard_router, prefix="/api")
 app.include_router(control_router, prefix="/api")
+
+# Database-backed API with JWT login and roles
+from .routes.auth import router as auth_router  # noqa: E402
+from .routes.store import router as store_router  # noqa: E402
+
+app.include_router(auth_router, prefix="/api")
+app.include_router(store_router, prefix="/api")
 
 
 @app.get("/")
