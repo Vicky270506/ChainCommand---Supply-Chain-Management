@@ -12,6 +12,7 @@ from chaincommand.features.engineering import (
 )
 from chaincommand.forecasting.baselines import LinearBaseline, SeasonalNaive
 from chaincommand.forecasting.metrics import bias, mae, rmse, smape
+from chaincommand.forecasting.gbm import GBMForecaster
 
 
 def linear_columns(horizon=1):
@@ -30,14 +31,20 @@ def score(y_true, y_pred):
     }
 
 
-def evaluate_models(train, valid, test, horizon=1):
+def evaluate_models(train, valid, test, horizon=1, include_gbm=True):
     models = {
         "seasonal_naive": SeasonalNaive(),
         "linear": LinearBaseline(linear_columns(horizon)),
     }
+    if include_gbm:
+        models["lightgbm"] = GBMForecaster(feature_columns(horizon))
     rows = []
     for name, model in models.items():
-        model.fit(train, train[TARGET])  # fit on train only, never on valid/test
+        if name == "lightgbm":
+            # valid is used only to decide when to stop adding trees
+            model.fit(train, train[TARGET], valid, valid[TARGET])
+        else:
+            model.fit(train, train[TARGET])
         for split_name, part in (("valid", valid), ("test", test)):
             rows.append(
                 {"model": name, "split": split_name,

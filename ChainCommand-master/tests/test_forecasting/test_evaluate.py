@@ -22,7 +22,7 @@ def test_linear_columns_drop_ids():
 
 def test_evaluate_models_shape_and_naive_perfect():
     df = _fake_frame()
-    res = evaluate_models(df[:30], df[30:45], df[45:], horizon=1)
+    res = evaluate_models(df[:30], df[30:45], df[45:], horizon=1, include_gbm=False)
     assert len(res) == 4  # 2 models x 2 splits
     assert set(res["model"]) == {"seasonal_naive", "linear"}
     naive = res[res["model"] == "seasonal_naive"]
