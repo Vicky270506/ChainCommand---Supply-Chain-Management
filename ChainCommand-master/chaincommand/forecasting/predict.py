@@ -9,6 +9,14 @@ from chaincommand.features.dataset import build_dataset
 from chaincommand.features.engineering import TARGET, feature_columns
 from chaincommand.forecasting.intervals import IntervalForecaster
 
+from datetime import datetime
+from typing import Optional
+
+from sqlalchemy.orm import Session
+
+from chaincommand.db.models import Forecast, utcnow
+from chaincommand.features.dataset import get_engine
+
 ARTIFACT_DIR = Path("artifacts")
 
 
@@ -43,11 +51,42 @@ def forecast_future(df, point, interval):
     out["upper"] = hi
     return out.sort_values(["product_id", "date"]).reset_index(drop=True)
 
+def save_forecasts(
+    engine,
+    forecasts: pd.DataFrame,
+    horizon: int,
+    model_name: str = "lightgbm",
+    generated_at: Optional[datetime] = None,
+) -> str:
+    """Append one forecast run to the `forecasts` table and return its version tag.
+
+    Rows are only ever added, never updated, so every run stays in history.
+    The horizon goes into model_version because the table has no horizon column.
+    """
+    generated_at = generated_at or utcnow()
+    version = f"{model_name}-h{horizon}-{generated_at:%Y%m%d%H%M%S%f}"
+    rows = [
+        Forecast(
+            product_id=int(r.product_id),
+            forecast_date=pd.Timestamp(r.date).date(),
+            predicted_demand=float(r.forecast),
+            lower=float(r.lower),
+            upper=float(r.upper),
+            model_version=version,
+            generated_at=generated_at,
+        )
+        for r in forecasts.itertuples(index=False)
+    ]
+    with Session(engine) as session:
+        session.add_all(rows)
+        session.commit()
+    return version
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--horizon", type=int, default=1)
     parser.add_argument("--extend", type=int, default=7)
+    parser.add_argument("--save", action="store_true", help="also write forecasts to the database")
     args = parser.parse_args()
 
     df = build_dataset(horizon=args.horizon, extend_days=args.extend)
@@ -60,6 +99,9 @@ def main():
     forecasts.to_csv(ARTIFACT_DIR / "forecasts.csv", index=False)
     print(f"saved model and {len(forecasts)} forecast rows")
     print(forecasts.head(8).to_string(index=False, float_format=lambda v: f"{v:.1f}"))
+    if args.save:
+        version = save_forecasts(get_engine(), forecasts, args.horizon)
+        print(f"saved {len(forecasts)} rows to the forecasts table as {version}")
 
 
 if __name__ == "__main__":
