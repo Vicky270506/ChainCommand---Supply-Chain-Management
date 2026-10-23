@@ -10,6 +10,7 @@ from chaincommand.features.engineering import (
     TARGET,
     feature_columns,
     time_split,
+    rolling_origin_folds
 )
 from chaincommand.forecasting.baselines import LinearBaseline, SeasonalNaive
 from chaincommand.forecasting.metrics import bias, mae, rmse, smape
@@ -67,12 +68,44 @@ def evaluate_intervals(train, valid, test, horizon=1, level=0.8):
         })
     return pd.DataFrame(rows)
 
+def backtest(df, horizon=1, n_folds=3, valid_days=30):
+    """MAE per model on walk-forward folds."""
+    rows = []
+    for k, (train, valid) in enumerate(
+        rolling_origin_folds(df, n_folds, valid_days), start=1
+    ):
+        # LightGBM needs a stopping set. Carve it from the END of train so the
+        # fold's validation window is never used for fitting or stopping.
+        cut = train["date"].max() - pd.Timedelta(days=30)
+        fit_part = train[train["date"] <= cut]
+        stop_part = train[train["date"] > cut]
+
+        models = {
+            "seasonal_naive": SeasonalNaive(),
+            "linear": LinearBaseline(linear_columns(horizon)),
+            "lightgbm": GBMForecaster(feature_columns(horizon)),
+        }
+        for name, model in models.items():
+            if name == "lightgbm":
+                model.fit(fit_part, fit_part[TARGET], stop_part, stop_part[TARGET])
+            else:
+                model.fit(train, train[TARGET])
+            rows.append({"fold": k, "model": name,
+                         "MAE": mae(valid[TARGET], model.predict(valid))})
+    table = pd.DataFrame(rows).pivot(index="model", columns="fold", values="MAE")
+    return table.assign(mean=lambda d: d.mean(axis=1))
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--horizon", type=int, default=1)
+    parser.add_argument("--backtest", action="store_true")
     args = parser.parse_args()
 
     df = build_dataset(horizon=args.horizon)
+    if args.backtest:
+        print("Walk-forward MAE (3 folds x 30 days)")
+        print(backtest(df, args.horizon).to_string(float_format=lambda v: f"{v:.2f}"))
+        return
     train, valid, test = time_split(df)
     print(f"train={len(train)} valid={len(valid)} test={len(test)} rows")
     results = evaluate_models(train, valid, test, args.horizon)
