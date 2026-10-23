@@ -3,7 +3,27 @@ import pandas as pd
 
 from chaincommand.stockout.features import add_stockout_features
 
+from chaincommand.stockout.features import incoming_units
 
+
+def test_incoming_units_point_in_time():
+    dates = pd.date_range("2026-01-01", periods=8)
+    df = pd.concat([
+        pd.DataFrame({"product_id": 1, "date": dates}),
+        pd.DataFrame({"product_id": 2, "date": dates}),
+    ], ignore_index=True)
+    orders = pd.DataFrame({
+        "product_id": [1, 2],
+        "date": pd.to_datetime(["2026-01-03", "2026-01-05"]),
+        "received_date": pd.to_datetime(["2026-01-06", None]),
+        "quantity": [100, 50],
+    })
+    got = incoming_units(df, orders).tolist()
+    # product 1: on order from Jan 3 to Jan 5, received Jan 6 -> visible to rows Jan 4-6
+    assert got[:8] == [0, 0, 0, 100, 100, 100, 0, 0]
+    # product 2: still open at the end of the data
+    assert got[8:] == [0, 0, 0, 0, 0, 50, 50, 50]
+    
 def test_cover_and_expected_demand():
     df = pd.DataFrame({
         "stock_at_origin": [70.0, 50.0], "roll_mean_7": [10.0, 0.0],
