@@ -1,8 +1,9 @@
 """Fit the baselines on a time split and print their accuracy."""
 import argparse
-
+import numpy as np
 import pandas as pd
-
+from chaincommand.forecasting.metrics import bias, coverage, mae, rmse, smape
+from chaincommand.forecasting.intervals import IntervalForecaster
 from chaincommand.features.dataset import build_dataset
 from chaincommand.features.engineering import (
     CATEGORICAL,
@@ -52,6 +53,19 @@ def evaluate_models(train, valid, test, horizon=1, include_gbm=True):
             )
     return pd.DataFrame(rows)
 
+def evaluate_intervals(train, valid, test, horizon=1, level=0.8):
+    model = IntervalForecaster(feature_columns(horizon), level=level)
+    model.fit(train, train[TARGET], valid, valid[TARGET])
+    rows = []
+    for split_name, part in (("valid", valid), ("test", test)):
+        lo, hi = model.predict_interval(part)
+        rows.append({
+            "split": split_name,
+            "target": level,
+            "coverage": coverage(part[TARGET], lo, hi),
+            "mean_width": float(np.mean(hi - lo)),
+        })
+    return pd.DataFrame(rows)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -63,6 +77,9 @@ def main():
     print(f"train={len(train)} valid={len(valid)} test={len(test)} rows")
     results = evaluate_models(train, valid, test, args.horizon)
     print(results.to_string(index=False, float_format=lambda v: f"{v:.2f}"))
+    print("\n80% prediction interval (LightGBM quantile models)")
+    intervals = evaluate_intervals(train, valid, test, args.horizon)
+    print(intervals.to_string(index=False, float_format=lambda v: f"{v:.2f}"))
 
 
 if __name__ == "__main__":
