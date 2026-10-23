@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import pandas as pd
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.orm import Session
 
 from chaincommand.db.models import Base, Forecast
@@ -20,6 +20,13 @@ def _forecasts():
 
 def test_two_runs_are_both_kept():
     engine = create_engine("sqlite:///:memory:")
+
+    @event.listens_for(engine, "connect")
+    def _no_foreign_keys(dbapi_conn, _record):
+        # This test is about append-only history, not product integrity,
+        # so skip the FK check instead of seeding products and suppliers.
+        dbapi_conn.execute("PRAGMA foreign_keys=OFF")
+
     Base.metadata.create_all(engine)
 
     v1 = save_forecasts(engine, _forecasts(), 7, generated_at=datetime(2026, 10, 23, 10, 0, 0))
