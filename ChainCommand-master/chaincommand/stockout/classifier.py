@@ -10,7 +10,7 @@ from sklearn.metrics import (
 from chaincommand.features.dataset import build_dataset, get_engine
 from chaincommand.features.engineering import time_split
 from chaincommand.stockout.features import (
-    STOCKOUT_FEATURES_FULL, add_incoming_features, add_stockout_features, load_orders,
+    STOCKOUT_FEATURES_FULL, add_incoming_features, add_stockout_features, load_orders, STOCKOUT_FEATURES
 )
 from chaincommand.stockout.labels import LABEL, add_stockout_label
 
@@ -94,16 +94,26 @@ def main():
     clf = StockoutClassifier().fit(train, train[LABEL], valid, valid[LABEL])
     print(f"threshold chosen on valid: {clf.threshold:.3f}")
 
+    clf_noinc = StockoutClassifier(feature_cols=STOCKOUT_FEATURES).fit(
+        train, train[LABEL], valid, valid[LABEL])
     rows = []
     for split, part in (("valid", valid), ("test", test)):
         y = part[LABEL]
-        prob = clf.predict_proba(part)
-        rows.append({"model": "lightgbm", "split": split, **report(y, clf.predict(part), prob)})
-        rule_margin = (part["stock_plus_incoming_minus_expected"] < 0).astype(int)
-        rows.append({"model": "rule_stock_lt_demand", "split": split, **report(y, rule_margin)})
-        rule_cover = (part["lead_time_gap"] > 0).astype(int)
-        rows.append({"model": "rule_cover_lt_leadtime", "split": split, **report(y, rule_cover)})
+        for name, m in (("lightgbm", clf), ("lightgbm_no_incoming", clf_noinc)):
+            prob = m.predict_proba(part)
+            rows.append({"model": name, "split": split, **report(y, m.predict(part), prob)})
+        rules = {
+            "rule_stock_lt_demand": part["stock_plus_incoming_minus_expected"] < 0,
+            "rule_cover_lt_leadtime": part["lead_time_gap"] > 0,
+            "rule_recent_stockout": part["stockout_days_14"] > 0,
+        }
+        for name, flag in rules.items():
+            rows.append({"model": name, "split": split, **report(y, flag.astype(int))})
     print(pd.DataFrame(rows).to_string(index=False, float_format=lambda v: f"{v:.3f}"))
+
+    imp = pd.Series(clf.model.feature_importance(importance_type="gain"), index=clf.feature_cols)
+    print("\nshare of total gain:")
+    print((imp / imp.sum()).sort_values(ascending=False).round(3).to_string())
 
 
 if __name__ == "__main__":
