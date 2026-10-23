@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 def main() -> None:
     parser = argparse.ArgumentParser(

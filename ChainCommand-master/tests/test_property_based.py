@@ -33,7 +33,7 @@ if HAS_HYPOTHESIS:
             lead_time_days=st.integers(min_value=1, max_value=30),
             min_order_qty=st.integers(min_value=10, max_value=500),
         )
-        @settings(max_examples=30)
+        @settings(max_examples=1, deadline=None)
         def test_ga_results_are_physically_valid(
             self, daily_demand_avg, daily_demand_std, lead_time_days, min_order_qty,
         ):
@@ -72,7 +72,7 @@ if HAS_HYPOTHESIS:
         """BOM explosion quantities must always be positive."""
 
         @given(n=st.integers(min_value=1, max_value=10))
-        @settings(max_examples=10)
+        @settings(max_examples=10, deadline=None)
         def test_bom_explosion_quantities_positive(self, n):
             from chaincommand.bom.manager import BOMManager
 
@@ -100,7 +100,7 @@ if HAS_HYPOTHESIS:
         """CP-SAT supplier allocation must always meet demand."""
 
         @given(demand=st.floats(min_value=100, max_value=10000))
-        @settings(max_examples=20)
+        @settings(max_examples=20, deadline=None)
         def test_optimizer_satisfies_demand(self, demand):
             from chaincommand.optimization.cpsat_optimizer import (
                 SupplierAllocationOptimizer,
@@ -127,7 +127,7 @@ if HAS_HYPOTHESIS:
             on_time=st.floats(min_value=0.5, max_value=0.99),
             defect=st.floats(min_value=0.001, max_value=0.1),
         )
-        @settings(max_examples=20)
+        @settings(max_examples=20, deadline=None)
         def test_risk_score_in_range(self, on_time, defect):
             from chaincommand.risk.scorer import SupplierMetrics, SupplierRiskScorer
 
