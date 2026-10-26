@@ -19,7 +19,7 @@ x-app: &app
     CC_API_KEY: ${CC_API_KEY:-demo-only-api-key}
     CC_DEMO_PASSWORD: ${CC_DEMO_PASSWORD:-Demo12345}
     CC_RL_TOTAL_TIMESTEPS: ${CC_RL_TOTAL_TIMESTEPS:-5000}   # the original simulator trains PPO at start-up
-    CC_CORS_ORIGINS: ${CC_CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8000}
+    CC_CORS_ORIGINS: ${CC_CORS_ORIGINS:-["http://localhost:3000","http://localhost:5173","http://localhost:8000"]}
     MLFLOW_DISABLE_TELEMETRY: "true"
 
 services:
