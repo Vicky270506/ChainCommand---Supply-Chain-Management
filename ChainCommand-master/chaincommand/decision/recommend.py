@@ -83,13 +83,10 @@ def apply_constraints(df, budget=None):
     return df.merge(plan, on="product_id")
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--budget", type=float, default=None)
-    args = ap.parse_args()
-    engine = get_engine()
+def generate_recommendations(engine, budget=None):
+    """Build the constrained plan from the latest forecasts and save it as PENDING rows."""
     version, df = build_plan(engine)
-    df = apply_constraints(df, args.budget)
+    df = apply_constraints(df, budget)
     with Session(engine) as s:
         data_ts = s.scalar(select(func.max(InventoryTransaction.timestamp)))
         now = utcnow()
@@ -106,6 +103,14 @@ def main():
                 approval_status=ApprovalStatus.PENDING)
             for r in df.itertuples()])
         s.commit()
+    return version, df
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--budget", type=float, default=None)
+    args = ap.parse_args()
+    version, df = generate_recommendations(get_engine(), args.budget)
     print(f"saved {len(df)} pending recommendations using forecasts {version}")
     print(df["action"].value_counts().to_string())
     print(df[["product_id", "current_stock", "incoming", "forecast_L", "raw", "qty", "action"]]

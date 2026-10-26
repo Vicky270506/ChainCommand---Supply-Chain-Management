@@ -113,9 +113,11 @@ app.include_router(control_router, prefix="/api")
 # Database-backed API with JWT login and roles
 from .routes.auth import router as auth_router  # noqa: E402
 from .routes.store import router as store_router  # noqa: E402
+from .routes.mlops import router as mlops_router  # noqa: E402
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(store_router, prefix="/api")
+app.include_router(mlops_router, prefix="/api")
 
 
 @app.get("/")

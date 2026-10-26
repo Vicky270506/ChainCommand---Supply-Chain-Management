@@ -1,58 +1,111 @@
-services:
-  chaincommand:
-    build: .
-    ports:
-      - "8000:8000"
-    mem_limit: 1g
-    cpus: 1.0
-    environment:
-      - CC_LOG_LEVEL=INFO
-      - CC_RL_TOTAL_TIMESTEPS=50000
-      # POSTGRES_PASSWORD must be set in .env or environment — no default provided
-      - DATABASE_URL=postgresql://chaincommand:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/chaincommand
-      - REDIS_URL=redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD}@redis:6379/0
-    volumes:
-      - ./data:/app/data
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+# Hybrid Inventory Management System - PostgreSQL + MLflow + API + scheduled retraining
+#
+#   docker compose up --build
+#
+#   API docs     http://localhost:8000/docs      (login: admin@example.com / the CC_DEMO_PASSWORD below)
+#   MLflow UI    http://localhost:5000
+#
+# The defaults below are for a local demo only. Put real values in a .env file next to this one
+# (see .env.docker.example) before running anywhere else.
 
+x-app: &app
+  build: .
+  image: chaincommand:latest
+  environment: &app-env
+    CC_ENV: ${CC_ENV:-development}
+    CC_DATABASE_URL: postgresql+psycopg://chaincommand:${POSTGRES_PASSWORD:-chaincommand}@postgres:5432/chaincommand
+    CC_MLFLOW_TRACKING_URI: http://mlflow:5000
+    CC_JWT_SECRET: ${CC_JWT_SECRET:-demo-only-jwt-secret-change-me-0123456789abcdef}
+    CC_API_KEY: ${CC_API_KEY:-demo-only-api-key}
+    CC_DEMO_PASSWORD: ${CC_DEMO_PASSWORD:-Demo12345}
+    CC_RL_TOTAL_TIMESTEPS: ${CC_RL_TOTAL_TIMESTEPS:-5000}   # the original simulator trains PPO at start-up
+    CC_CORS_ORIGINS: ${CC_CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,http://localhost:8000}
+    MLFLOW_DISABLE_TELEMETRY: "true"
+
+services:
   postgres:
     image: postgres:16-alpine
-    mem_limit: 512m
-    cpus: 0.5
     environment:
       POSTGRES_DB: chaincommand
       POSTGRES_USER: chaincommand
-      # POSTGRES_PASSWORD must be set in .env or environment — no default provided
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chaincommand}
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro      # creates the "mlflow" database
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chaincommand -d chaincommand"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 10s
     restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    mem_limit: 256m
-    cpus: 0.25
-    command: redis-server --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+  # MLflow tracking server + model registry. Runs and registered models live in PostgreSQL;
+  # artifacts (model files, plots) are stored by the server and reached through its proxy,
+  # so the other containers never need the artifact volume.
+  mlflow:
+    <<: *app
+    command:
+      - mlflow
+      - server
+      - --host=0.0.0.0
+      - --port=5000
+      - --backend-store-uri=postgresql+psycopg://chaincommand:${POSTGRES_PASSWORD:-chaincommand}@postgres:5432/mlflow
+      - --artifacts-destination=/mlflow/artifacts
+      - --serve-artifacts
+      # MLflow 3 rejects unknown Host headers; "mlflow" is this service's name on the compose network
+      - --allowed-hosts=mlflow:5000,mlflow,localhost:5000,127.0.0.1:5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-artifacts:/mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # One-shot: create tables, seed demo data and users, train the first champion models,
+  # create the first forecasts and pending recommendations. Safe to run again.
+  bootstrap:
+    <<: *app
+    command: ["python", "-m", "chaincommand.mlops", "bootstrap"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *app
+    ports:
+      - "8000:8000"
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Daily monitoring + drift check, weekly retraining, monthly full retraining,
+  # and event-driven retraining when drift / accuracy loss / a stockout spike is detected.
+  scheduler:
+    <<: *app
+    command: ["python", "-m", "chaincommand.mlops", "scheduler"]
+    volumes:
+      - scheduler-state:/app/artifacts
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:
   postgres-data:
+  mlflow-artifacts:
+  scheduler-state:

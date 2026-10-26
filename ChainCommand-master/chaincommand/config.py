@@ -68,6 +68,22 @@ class Settings(BaseSettings):
     # PostgreSQL: postgresql+psycopg://user:password@localhost:5432/chaincommand
     database_url: str = "sqlite:///./inventory.db"
 
+    # ── MLflow / MLOps ───────────────────────────────────
+    # Local default: a SQLite file (mlflow.db; the ./mlruns file store is deprecated). In Docker this is the MLflow server.
+    mlflow_tracking_uri: str = "sqlite:///mlflow.db"
+    mlflow_experiment: str = "chaincommand-inventory"
+    mlops_horizon: int = 7                  # forecast horizon (days) of the registered forecaster
+    mlops_valid_days: int = 30              # early-stopping window
+    mlops_test_days: int = 30               # hold-out window used to compare champion and challenger
+    mlops_min_improvement: float = 0.0      # challenger must beat champion MAE by this fraction (0.02 = 2 %)
+    mlops_psi_threshold: float = 0.2        # PSI above this marks a feature as drifted
+    mlops_drift_share: float = 0.3          # retrain when this share of monitored features drifted
+    mlops_mae_degradation: float = 0.25     # retrain when live MAE is this much worse than at training time
+    mlops_monitor_every_hours: float = 24.0   # "daily": monitoring + drift check
+    mlops_retrain_every_days: float = 7.0     # "weekly": retrain the forecaster
+    mlops_full_retrain_every_days: float = 30.0  # "monthly": retrain forecaster and stockout model
+    mlops_state_file: str = "artifacts/scheduler_state.json"  # remembers when each scheduled job last ran
+
     # ── Login tokens ─────────────────────────────────────
     jwt_secret: SecretStr = SecretStr("dev-jwt-secret-change-me-0123456789abcdef")  # set CC_JWT_SECRET outside development
     jwt_expire_minutes: int = 60
